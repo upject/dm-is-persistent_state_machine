@@ -107,6 +107,7 @@ module DataMapper
           property :from_id, Integer,   :required => true, :min => 1
           property :to_id, Integer,     :required => true, :min => 1
           property :user_id, Integer,   :required => true, :min => 1
+          property :comment, String
           property Extlib::Inflection.foreign_key(target_model_name).to_sym, Integer, :required => true, :min => 1
           property :created_at, DateTime
 
@@ -123,7 +124,7 @@ module DataMapper
         
         after :save do
           if (@prev_state && @prev_state != state)
-            @state_change = state_change_model.create(:from => @prev_state, :to => state, :created_at => DateTime.now, :user => @updating_user, Extlib::Inflection.foreign_key(target_model_name).to_sym => self.id)
+            @state_change = state_change_model.create(:from => @prev_state, :to => state, :created_at => DateTime.now, :user => @updating_user, :comment => @comment, Extlib::Inflection.foreign_key(target_model_name).to_sym => self.id)
             @prev_state = nil # clean up cache
             @user = nil
           end
@@ -141,10 +142,11 @@ module DataMapper
       end # ClassMethods
  
       module InstanceMethods
-        def trigger_event!(event_code, user)
+        def trigger_event!(event_code, user, comment = nil)
           # cache prev_state and the user that is triggering the event
           @prev_state = self.state
           @updating_user = user
+          @comment = comment
 
           # delegate to State#trigger!
           self.state.trigger_event!(self, event_code)
