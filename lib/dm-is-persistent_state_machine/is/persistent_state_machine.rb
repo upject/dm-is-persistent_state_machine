@@ -57,6 +57,47 @@ class StateEvent
   property :type, Discriminator
 end
 
+# don't know why, but according to http://ryanangilly.com/post/234897271/dynamically-adding-class-methods-in-ruby that's the way to go for dynamically defining class methods
+class Object
+  def metaclass
+    class << self; self; end
+  end
+end
+
+module StateMachineConfig
+
+  def folder(name, opts, &block)
+    @folders = [] unless @folders
+    if block_given?
+      metaclass.instance_eval do
+        opts[:filter_method] = 'filter_'+name.to_s
+        define_method('filter_'+name.to_s) {
+          yield
+        }
+      end
+    end
+    @folders << opts.merge(:name => name.to_s)
+  end
+  
+  def items_in(folder_name)
+    folder = @folders.select{|f| f[:name] == folder_name.to_s }.first
+    if folder[:filter_method]
+      result = self.send(folder[:filter_method].to_s)
+    else
+      result = Quote
+    end
+    if folder[:states]
+      result = result.all('state.code' => folder[:states].to_s)
+    end
+    result
+  end
+  
+  def state_folders
+    return @folders.map{|f| {:name => f[:name], :label => f[:label] || f[:name] } }
+  end
+  
+end
+
 module DataMapper
   module Is
     module PersistentStateMachine
