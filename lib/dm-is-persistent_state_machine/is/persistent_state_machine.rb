@@ -64,7 +64,30 @@ class Object
   end
 end
 
-module StateMachineConfig
+module WorkflowConfig
+
+  class Evvent
+    def initialize(name, opts)
+      @name = name
+      @label = opts[:label] || name
+      @from = opts[:from]
+      @to = opts[:to]
+      @checks = []
+      @after_triggers = []
+    end
+    
+    def check(method_name)
+      @checks << method_name
+    end
+    
+    def checks
+      @checks
+    end
+  end
+  
+  def set(name, value)
+    instance_variable_set(name, value)
+  end
 
   def folder(name, opts, &block)
     @folders = [] unless @folders
@@ -77,6 +100,17 @@ module StateMachineConfig
       end
     end
     @folders << opts.merge(:name => name.to_s)
+  end
+  
+  def event(name, opts, &block)
+    @events = {} unless @events
+    
+    e = Evvent.new(name, opts)
+    
+    if block_given?
+      yield e
+    end
+    @events[name] = e
   end
   
   def items_in(folder_name)
@@ -94,6 +128,18 @@ module StateMachineConfig
   
   def state_folders
     return @folders.map{|f| {:name => f[:name], :label => f[:label] || f[:name] } }
+  end
+  
+  def events
+    result = {}
+    @events.each_pair do |name, e|
+      passed = true
+      e.checks.each do |c|
+        passed = false unless self.send(c.to_s)
+      end
+      result[name] = e if passed
+    end
+    result
   end
   
 end
