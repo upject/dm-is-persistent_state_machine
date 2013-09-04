@@ -66,14 +66,11 @@ end
 
 module WorkflowConfig
 
-  class Evvent
+  class EventPrecondition
     def initialize(name, opts)
       @name = name
-      @label = opts[:label] || name
       @from = opts[:from]
-      @to = opts[:to]
       @checks = []
-      @after_triggers = []
     end
     
     def check(method_name)
@@ -102,15 +99,22 @@ module WorkflowConfig
     @folders << opts.merge(:name => name.to_s)
   end
   
-  def event(name, opts, &block)
-    @events = {} unless @events
+  def preconditions_for(name, opts, &block)
+    @event_preconditions = {} unless @event_preconditions
+    @event_preconditions[name.to_s] = {} unless @event_preconditions[name.to_s]
     
-    e = Evvent.new(name, opts)
+    e = EventPrecondition.new(name.to_s, opts)
     
     if block_given?
       yield e
     end
-    @events[name] = e
+    @event_preconditions[name.to_s][opts[:from].to_s] = e
+  end
+  
+  def editable_data(state, opts, &block)
+    @editable_data = {} unless @editable_data
+    @editable_data[state.to_s] = [] unless @editable_data[state.to_s]
+    @editable_data[state.to_s].push opts
   end
   
   def items_in(folder_name)
@@ -121,7 +125,7 @@ module WorkflowConfig
       result = Quote
     end
     if folder[:states]
-      result = result.all('state.code' => folder[:states].to_s)
+      result = result.all('state.code' => folder[:states].map{|s| s.to_s})
     end
     result
   end
@@ -130,16 +134,27 @@ module WorkflowConfig
     return @folders.map{|f| {:name => f[:name], :label => f[:label] || f[:name] } }
   end
   
-  def events
-    result = {}
-    @events.each_pair do |name, e|
-      passed = true
-      e.checks.each do |c|
-        passed = false unless self.send(c.to_s)
-      end
-      result[name] = e if passed
+  def event_allowed?(event_name, from)
+    return true unless @event_preconditions[event_name.to_s] && @event_preconditions[event_name.to_s][from.to_s]
+    @event_preconditions[event_name.to_s][from.to_s].checks.each do |c|
+      return false unless self.send(c.to_s)
     end
-    result
+    true
+  end
+  
+  def get_editable_data(state)
+    return[] unless @editable_data[state.to_s]
+    result = []
+    @editable_data[state.to_s].each do |ed|
+      passed = true
+      if ed[:checks]
+        ed[:checks].each do |c|
+          passed = false unless self.send(c.to_s)
+        end
+      end
+      result += ed[:fields] if passed
+    end
+    result.uniq
   end
   
 end
