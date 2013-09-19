@@ -117,12 +117,12 @@ module WorkflowConfig
     @editable_data[state.to_s].push opts
   end
   
-  def items_in(folder_name)
+  def items_in(base_set, folder_name)
     folder = @folders.select{|f| f[:name] == folder_name.to_s }.first
     if folder[:filter_method]
-      result = self.send(folder[:filter_method].to_s)
+      result = self.send(folder[:filter_method].to_s, base_set)
     else
-      result = Quote
+      result = base_set
     end
     if folder[:states]
       result = result.all('state.code' => folder[:states].map{|s| s.to_s})
@@ -204,7 +204,7 @@ module DataMapper
         state_change_model = Class.new do
           include DataMapper::Resource
 
-          property :id, ::DataMapper::Types::Serial
+          property :id, ::DataMapper::Property::Serial
 
           property :from_id, Integer,   :required => true, :min => 1
           property :to_id, Integer,     :required => true, :min => 1
