@@ -212,6 +212,7 @@ module DataMapper
           property :comment, String
           property Extlib::Inflection.foreign_key(target_model_name).to_sym, Integer, :required => true, :min => 1
           property :created_at, DateTime
+          property :snapshot_data, ::DataMapper::Property::Text
 
           # associations
           belongs_to :user
@@ -226,7 +227,11 @@ module DataMapper
         
         after :save do
           if (@prev_state && @prev_state != state)
-            @state_change = state_change_model.create(:from => @prev_state, :to => state, :created_at => DateTime.now, :user => @updating_user, :comment => @comment, Extlib::Inflection.foreign_key(target_model_name).to_sym => self.id)
+            snapshot_data = nil
+            if self.respond_to?('serialize')
+              snapshot_data = self.serialize
+            end
+            @state_change = state_change_model.create(:from => @prev_state, :to => state, :created_at => DateTime.now, :user => @updating_user, :comment => @comment, Extlib::Inflection.foreign_key(target_model_name).to_sym => self.id, :snapshot_data => snapshot_data)
             @prev_state = nil # clean up cache
             @user = nil
           end
