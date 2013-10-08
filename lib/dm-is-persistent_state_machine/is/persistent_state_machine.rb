@@ -54,6 +54,7 @@ class StateEvent
   property :id,   Serial
   property :code, String, :required => true, :unique => true, :unique_index => true
   property :name, String, :required => true, :unique => true, :unique_index => true
+  property :next_user_required, Boolean
   property :type, Discriminator
 end
 
@@ -91,8 +92,8 @@ module WorkflowConfig
     if block_given?
       metaclass.instance_eval do
         opts[:filter_method] = 'filter_'+name.to_s
-        define_method('filter_'+name.to_s) {
-          yield
+        define_method('filter_'+name.to_s) {|base_set|
+          yield base_set
         }
       end
     end
@@ -134,7 +135,8 @@ module WorkflowConfig
     return @folders.map{|f| {:name => f[:name], :label => f[:label] || f[:name] } }
   end
   
-  def event_allowed?(event_name, from)
+  def event_allowed?(event_name, from, opts = {})
+    return false unless @quote.current_responsible_user_id==nil || @quote.current_responsible_user_id==@user.id || opts[:ignore_current_user_setting]
     return true unless @event_preconditions[event_name.to_s] && @event_preconditions[event_name.to_s][from.to_s]
     @event_preconditions[event_name.to_s][from.to_s].checks.each do |c|
       return false unless self.send(c.to_s)
@@ -192,7 +194,9 @@ module DataMapper
         
         # target object must have a status associated
         property :state_id, Integer, :required => true, :min => 1
+        property :current_responsible_user_id, Integer
         belongs_to :state
+        belongs_to :current_responsible_user, :model => 'User'
         
         has n, Extlib::Inflection.pluralize(target_model_name+"StateChange").snake_case.to_sym, :constraint => :destroy!
         
@@ -213,6 +217,7 @@ module DataMapper
           property Extlib::Inflection.foreign_key(target_model_name).to_sym, Integer, :required => true, :min => 1
           property :created_at, DateTime
           property :snapshot_data, ::DataMapper::Property::Text
+          property :next_user_id, Integer
 
           # associations
           belongs_to :user
@@ -231,7 +236,7 @@ module DataMapper
             if self.respond_to?('serialize')
               snapshot_data = self.serialize
             end
-            @state_change = state_change_model.create(:from => @prev_state, :to => state, :created_at => DateTime.now, :user => @updating_user, :comment => @comment, Extlib::Inflection.foreign_key(target_model_name).to_sym => self.id, :snapshot_data => snapshot_data)
+            @state_change = state_change_model.create(:from => @prev_state, :to => state, :created_at => DateTime.now, :user => @updating_user, :comment => @comment, Extlib::Inflection.foreign_key(target_model_name).to_sym => self.id, :snapshot_data => snapshot_data, :next_user_id => @next_user_id)
             @prev_state = nil # clean up cache
             @user = nil
           end
@@ -249,11 +254,13 @@ module DataMapper
       end # ClassMethods
  
       module InstanceMethods
-        def trigger_event!(event_code, user, comment = nil)
+        def trigger_event!(event_code, user, comment = nil, next_user_id = nil)
           # cache prev_state and the user that is triggering the event
           @prev_state = self.state
           @updating_user = user
           @comment = comment
+          @next_user_id = next_user_id
+          self.current_responsible_user_id = next_user_id
 
           # delegate to State#trigger!
           self.state.trigger_event!(self, event_code)
