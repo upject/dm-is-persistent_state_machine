@@ -136,7 +136,7 @@ module WorkflowConfig
   end
   
   def event_allowed?(event_name, from, opts = {})
-    return false unless @quote.current_responsible_user_id==nil || @quote.current_responsible_user_id==@user.id || opts[:ignore_current_user_setting]
+    return false unless @quote.current_responsible_user_id==nil || @quote.current_responsible_user_id==@user.id || opts[:ignore_responsible_user_setting]
     return true unless @event_preconditions[event_name.to_s] && @event_preconditions[event_name.to_s][from.to_s]
     @event_preconditions[event_name.to_s][from.to_s].checks.each do |c|
       return false unless self.send(c.to_s)
