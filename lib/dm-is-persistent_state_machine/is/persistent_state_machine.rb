@@ -37,8 +37,11 @@ class State
   # obj is the caller object
   def trigger_event!(obj, event_code)
     event = StateEvent.first(:code => event_code)
+    puts 'TRIGGER'
+    puts event.inspect
     state_transitions.each do |transition|
       if transition.state_event == event    
+        puts 'got it'
         obj.state = transition.target
         obj.after_trigger_event(event)
         return true
@@ -231,7 +234,7 @@ module DataMapper
         self_cached = self
         
         after :save do
-          if (@prev_state && @prev_state != state)
+          if (@prev_state && (@prev_state != state || @next_user_id!=current_responsible_user_id))
             snapshot_data = nil
             if self.respond_to?('serialize')
               snapshot_data = self.serialize
