@@ -239,7 +239,17 @@ module DataMapper
             if self.respond_to?('serialize')
               snapshot_data = self.serialize
             end
-            @state_change = state_change_model.create(:from => @prev_state, :to => state, :created_at => DateTime.now, :user => @updating_user, :comment => @comment, Extlib::Inflection.foreign_key(target_model_name).to_sym => self.id, :snapshot_data => snapshot_data, :next_user_id => @next_user_id)
+            @state_change = state_change_model.new
+            # for some reason attributes= does raise an error, unfortunately solution provided here https://github.com/datamapper/dm-core/issues/159 does not solve it
+            @state_change.from = @prev_state
+            @state_change.to = state
+            @state_change.created_at = DateTime.now,
+            @state_change.user = @updating_user
+            @state_change.comment = @comment
+            @state_change.send(Extlib::Inflection.foreign_key(target_model_name)+'=', self.id)
+            @state_change.snapshot_data = snapshot_data
+            @state_change.next_user_id = @next_user_id
+            @state_change.save
             @prev_state = nil # clean up cache
             @user = nil
           end
