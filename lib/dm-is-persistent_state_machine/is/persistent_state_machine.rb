@@ -140,7 +140,7 @@ module WorkflowConfig
   
   def event_allowed?(event_name, from, opts = {})
     return false unless @quote.current_responsible_user_id==nil || @quote.current_responsible_user_id==@user.id || opts[:ignore_responsible_user_setting]
-    return true unless @event_preconditions[event_name.to_s] && @event_preconditions[event_name.to_s][from.to_s]
+    return true unless @event_preconditions && @event_preconditions[event_name.to_s] && @event_preconditions[event_name.to_s][from.to_s]
     @event_preconditions[event_name.to_s][from.to_s].checks.each do |c|
       return false unless self.send(c.to_s)
     end
@@ -148,7 +148,7 @@ module WorkflowConfig
   end
   
   def get_editable_data(state)
-    return[] unless @editable_data[state.to_s]
+    return[] unless @editable_data && @editable_data[state.to_s]
     result = []
     @editable_data[state.to_s].each do |ed|
       passed = true
