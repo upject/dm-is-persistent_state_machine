@@ -58,6 +58,7 @@ class StateEvent
   property :code, String, :required => true, :unique => true, :unique_index => true
   property :name, String, :required => true, :unique => true, :unique_index => true
   property :next_user_required, Boolean
+  property :comment_required, Boolean
   property :type, Discriminator
 end
 
