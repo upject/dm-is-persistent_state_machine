@@ -6,6 +6,7 @@ require 'dm-types'
 require 'dm-timestamps'
 require 'dm-validations'
 require 'dm-aggregates'
+require 'dm-is-localizable'
 
 require 'dm-is-persistent_state_machine/is/persistent_state_machine'
 

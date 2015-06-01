@@ -17,10 +17,14 @@ class State
 
   property :id,             Serial
   property :code,           String, :required => true, :unique => true, :unique_index => true
-  property :name,           String, :required => true, :unique => true, :unique_index => true
   property :editable,       Boolean, :default => true
   property :sorter,         Integer
   property :type,           Discriminator
+
+  translatable :accepts_nested_attributes => false do
+    property :name, String, :required => true, :unique_index => :name
+    add_locale_tag_unique_index(:name)
+  end
 
   # outgoing transitions
   has n, :state_transitions, 'StateTransition', :child_key => [:state_id]
