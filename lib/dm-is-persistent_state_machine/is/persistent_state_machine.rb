@@ -60,10 +60,14 @@ class StateEvent
   
   property :id,   Serial
   property :code, String, :required => true, :unique => true, :unique_index => true
-  property :name, String, :required => true, :unique => true, :unique_index => true
   property :next_user_required, Boolean
   property :comment_required, Boolean
   property :type, Discriminator
+
+  translatable :accepts_nested_attributes => false do
+    property :name, String, :required => true, :unique_index => :name
+    add_locale_tag_unique_index(:name)
+  end
 end
 
 # don't know why, but according to http://ryanangilly.com/post/234897271/dynamically-adding-class-methods-in-ruby that's the way to go for dynamically defining class methods
