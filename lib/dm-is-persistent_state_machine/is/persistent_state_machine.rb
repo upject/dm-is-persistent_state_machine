@@ -37,11 +37,9 @@ class State
   # obj is the caller object
   def trigger_event!(obj, event_code)
     event = StateEvent.first(:code => event_code)
-    puts 'TRIGGER'
     puts event.inspect
     state_transitions.each do |transition|
       if transition.state_event == event    
-        puts 'got it'
         obj.state = transition.target
         obj.after_trigger_event(event)
         return true
@@ -76,14 +74,23 @@ module WorkflowConfig
       @name = name
       @from = opts[:from]
       @checks = []
+      @validations = []
     end
     
     def check(method_name)
       @checks << method_name
     end
     
+    def validate(method_name)
+      @validations << method_name
+    end
+    
     def checks
       @checks
+    end
+    
+    def validations
+      @validations
     end
   end
   
@@ -146,6 +153,18 @@ module WorkflowConfig
       return false unless self.send(c.to_s)
     end
     true
+  end
+  
+  def get_validation_error(event_name, from)
+    puts event_name
+    puts from
+    puts @event_preconditions[event_name.to_s][from.to_s]
+    return nil unless @event_preconditions && @event_preconditions[event_name.to_s] && @event_preconditions[event_name.to_s][from.to_s]
+    @event_preconditions[event_name.to_s][from.to_s].validations.each do |v|
+      e = self.send(v.to_s)
+      return e if e
+    end
+    nil
   end
   
   def get_editable_data(state)
