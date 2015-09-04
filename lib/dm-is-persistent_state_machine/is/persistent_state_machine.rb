@@ -156,9 +156,6 @@ module WorkflowConfig
   end
   
   def get_validation_error(event_name, from)
-    puts event_name
-    puts from
-    puts @event_preconditions[event_name.to_s][from.to_s]
     return nil unless @event_preconditions && @event_preconditions[event_name.to_s] && @event_preconditions[event_name.to_s][from.to_s]
     @event_preconditions[event_name.to_s][from.to_s].validations.each do |v|
       e = self.send(v.to_s)
