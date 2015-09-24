@@ -137,6 +137,12 @@ module WorkflowConfig
     @editable_data[state.to_s].push opts
   end
   
+   def visible_data(state, opts, &block)
+    @visible_data = {} unless @visible_data
+    @visible_data[state.to_s] = [] unless @visible_data[state.to_s]
+    @visible_data[state.to_s].push opts
+  end
+  
   def items_in(base_set, folder_name)
     folder = @folders.select{|f| f[:name] == folder_name.to_s }.first
     if folder[:filter_method]
@@ -176,6 +182,21 @@ module WorkflowConfig
     return[] unless @editable_data && @editable_data[state.to_s]
     result = []
     @editable_data[state.to_s].each do |ed|
+      passed = true
+      if ed[:checks]
+        ed[:checks].each do |c|
+          passed = false unless self.send(c.to_s)
+        end
+      end
+      result += ed[:fields] if passed
+    end
+    result.uniq
+  end
+  
+  def get_visible_data(state)
+    return[] unless @visible_data && @visible_data[state.to_s]
+    result = []
+    @visible_data[state.to_s].each do |ed|
       passed = true
       if ed[:checks]
         ed[:checks].each do |c|
