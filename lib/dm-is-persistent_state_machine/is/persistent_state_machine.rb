@@ -297,7 +297,7 @@ module DataMapper
             @state_change.next_user_id = @next_user_id
             @state_change.save
             @prev_state = nil # clean up cache
-            @user = nil
+            @updating_user = nil
           end
         end
 
