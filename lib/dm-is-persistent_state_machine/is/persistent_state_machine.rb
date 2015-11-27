@@ -258,7 +258,7 @@ module DataMapper
 
         state_change_model = Class.new do
           include DataMapper::Resource
-
+          
           property :id, ::DataMapper::Property::Serial
 
           property :from_id, Integer,   :required => true, :min => 1
@@ -269,15 +269,18 @@ module DataMapper
           property :created_at, DateTime
           property :snapshot_data, ::DataMapper::Property::Text
           property :next_user_id, Integer
+        end
 
+        state_change_model = Object.full_const_set(self.to_s+"StateChange",state_change_model)
+
+        state_change_model.class_eval do
           # associations
-          belongs_to :user
+          belongs_to :user, 'User'
           belongs_to :from, "State"
           belongs_to :to,   "State"
           belongs_to target_model_name.to_sym
         end
         
-        state_change_model = Object.full_const_set(self.to_s+"StateChange",state_change_model)
         
         self_cached = self
         
