@@ -239,7 +239,7 @@ module DataMapper
         # Add instance-methods
         include DataMapper::Is::PersistentStateMachine::InstanceMethods
         
-        target_model_name = self.name.snake_case
+        target_model_name = Extlib::Inflection.underscore(self.name)
         
         # target object must have a status associated
         property :state_id, Integer, :required => true, :min => 1
@@ -247,7 +247,9 @@ module DataMapper
         belongs_to :state
         belongs_to :current_responsible_user, :model => 'User'
         
-        has n, Extlib::Inflection.pluralize(target_model_name+"StateChange").snake_case.to_sym, :constraint => :destroy!
+        state_changes = Extlib::Inflection.pluralize(target_model_name+"StateChange")
+        state_changes = Extlib::Inflection.underscore(state_changes)
+        has n, state_changes.to_sym, :constraint => :destroy!
         
         # generate a FooState class that is derived from State        
         state_model = Object.full_const_set(self.to_s+"State", Class.new(State))
