@@ -231,7 +231,6 @@ module DataMapper
       ##
     
       def is_persistent_state_machine
-        DataMapper.logger.info "registering persistent state machine..."
         
         # Add class-methods
         extend DataMapper::Is::PersistentStateMachine::ClassMethods
