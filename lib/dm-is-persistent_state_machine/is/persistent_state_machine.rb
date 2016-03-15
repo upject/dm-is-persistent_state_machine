@@ -102,110 +102,116 @@ module WorkflowConfig
     end
   end
   
-  def set(name, value)
-    instance_variable_set(name, value)
-  end
-
-  def folder(name, opts, &block)
-    @folders = [] unless @folders
-    if block_given?
-      metaclass.instance_eval do
+  module Setup
+    attr_accessor :folders
+    attr_accessor :event_preconditions
+    attr_accessor :editable_data_defs
+    attr_accessor :visible_data_defs
+  
+    def folder(name, opts, &block)
+      @folders = [] unless @folders
+      if block_given?
         opts[:filter_method] = 'filter_'+name.to_s
-        define_method('filter_'+name.to_s) {|base_set|
-          yield base_set
-        }
+        define_method('filter_'+name.to_s, &block)
       end
+      @folders << opts.merge(:name => name.to_s)
     end
-    @folders << opts.merge(:name => name.to_s)
-  end
-  
-  def preconditions_for(name, opts, &block)
-    @event_preconditions = {} unless @event_preconditions
-    @event_preconditions[name.to_s] = {} unless @event_preconditions[name.to_s]
     
-    e = EventPrecondition.new(name.to_s, opts)
+    def preconditions_for(name, opts, &block)
+      @event_preconditions = {} unless @event_preconditions
+      @event_preconditions[name.to_s] = {} unless @event_preconditions[name.to_s]
+      
+      e = EventPrecondition.new(name.to_s, opts)
+      
+      if block_given?
+        yield e
+      end
+      @event_preconditions[name.to_s][opts[:from].to_s] = e
+    end
     
-    if block_given?
-      yield e
+    def editable_data(state, opts, &block)
+      @editable_data_defs = {} unless @editable_data_defs
+      @editable_data_defs[state.to_s] = [] unless @editable_data_defs[state.to_s]
+      @editable_data_defs[state.to_s].push opts
     end
-    @event_preconditions[name.to_s][opts[:from].to_s] = e
-  end
-  
-  def editable_data(state, opts, &block)
-    @editable_data = {} unless @editable_data
-    @editable_data[state.to_s] = [] unless @editable_data[state.to_s]
-    @editable_data[state.to_s].push opts
-  end
-  
-   def visible_data(state, opts, &block)
-    @visible_data = {} unless @visible_data
-    @visible_data[state.to_s] = [] unless @visible_data[state.to_s]
-    @visible_data[state.to_s].push opts
-  end
-  
-  def items_in(base_set, folder_name)
-    folder = @folders.select{|f| f[:name] == folder_name.to_s }.first
-    if folder[:filter_method]
-      result = self.send(folder[:filter_method].to_s, base_set)
-    else
-      result = base_set
+    
+     def visible_data(state, opts, &block)
+      @visible_data_defs = {} unless @visible_data_defs
+      @visible_data_defs[state.to_s] = [] unless @visible_data_defs[state.to_s]
+      @visible_data_defs[state.to_s].push opts
     end
-    if folder[:states]
-      result = result.all('state.code' => folder[:states].map{|s| s.to_s})
+    
+    def state_folders
+      return @folders.map{|f| {:name => f[:name], :label => f[:label] || f[:name] } }
     end
-    result
   end
   
-  def state_folders
-    return @folders.map{|f| {:name => f[:name], :label => f[:label] || f[:name] } }
-  end
+  module Query
   
-  def event_allowed?(event_name, from, opts = {})
-    return false unless @quote.current_responsible_user_id==nil || @quote.current_responsible_user_id==@user.id || opts[:ignore_responsible_user_setting]
-    return true unless @event_preconditions && @event_preconditions[event_name.to_s] && @event_preconditions[event_name.to_s][from.to_s]
-    @event_preconditions[event_name.to_s][from.to_s].checks.each do |c|
-      return false unless self.send(c.to_s)
+    def set(name, value)
+      instance_variable_set(name, value)
     end
-    true
-  end
-  
-  def get_validation_error(event_name, from)
-    return nil unless @event_preconditions && @event_preconditions[event_name.to_s] && @event_preconditions[event_name.to_s][from.to_s]
-    @event_preconditions[event_name.to_s][from.to_s].validations.each do |v|
-      e = self.send(v.to_s)
-      return e if e
-    end
-    nil
-  end
-  
-  def get_editable_data(state)
-    return[] unless @editable_data && @editable_data[state.to_s]
-    result = []
-    @editable_data[state.to_s].each do |ed|
-      passed = true
-      if ed[:checks]
-        ed[:checks].each do |c|
-          passed = false unless self.send(c.to_s)
-        end
+    
+    def items_in(base_set, folder_name)
+      folder = QuoteWorkflow.folders.select{|f| f[:name] == folder_name.to_s }.first
+      if folder[:filter_method]
+        result = self.send(folder[:filter_method].to_s, base_set)
+      else
+        result = base_set
       end
-      result += ed[:fields] if passed
-    end
-    result.uniq
-  end
-  
-  def get_visible_data(state)
-    return[] unless @visible_data && @visible_data[state.to_s]
-    result = []
-    @visible_data[state.to_s].each do |ed|
-      passed = true
-      if ed[:checks]
-        ed[:checks].each do |c|
-          passed = false unless self.send(c.to_s)
-        end
+      if folder[:states]
+        result = result.all('state.code' => folder[:states].map{|s| s.to_s})
       end
-      result += ed[:fields] if passed
+      result
     end
-    result.uniq
+    
+    def event_allowed?(event_name, from, opts = {})
+      return false unless @quote.current_responsible_user_id==nil || @quote.current_responsible_user_id==@user.id || opts[:ignore_responsible_user_setting]
+      return true unless QuoteWorkflow.event_preconditions && QuoteWorkflow.event_preconditions[event_name.to_s] && QuoteWorkflow.event_preconditions[event_name.to_s][from.to_s]
+      QuoteWorkflow.event_preconditions[event_name.to_s][from.to_s].checks.each do |c|
+        return false unless self.send(c.to_s)
+      end
+      true
+    end
+    
+    def get_validation_error(event_name, from)
+      return nil unless QuoteWorkflow.event_preconditions && QuoteWorkflow.event_preconditions[event_name.to_s] && QuoteWorkflow.event_preconditions[event_name.to_s][from.to_s]
+      QuoteWorkflow.event_preconditions[event_name.to_s][from.to_s].validations.each do |v|
+        e = self.send(v.to_s)
+        return e if e
+      end
+      nil
+    end
+    
+    def get_editable_data(state)
+      return[] unless QuoteWorkflow.editable_data_defs && QuoteWorkflow.editable_data_defs[state.to_s]
+      result = []
+      QuoteWorkflow.editable_data_defs[state.to_s].each do |ed|
+        passed = true
+        if ed[:checks]
+          ed[:checks].each do |c|
+            passed = false unless self.send(c.to_s)
+          end
+        end
+        result += ed[:fields] if passed
+      end
+      result.uniq
+    end
+    
+    def get_visible_data(state)
+      return[] unless QuoteWorkflow.visible_data_defs && QuoteWorkflow.visible_data_defs[state.to_s]
+      result = []
+      QuoteWorkflow.visible_data_defs[state.to_s].each do |ed|
+        passed = true
+        if ed[:checks]
+          ed[:checks].each do |c|
+            passed = false unless self.send(c.to_s)
+          end
+        end
+        result += ed[:fields] if passed
+      end
+      result.uniq
+    end
   end
   
 end
