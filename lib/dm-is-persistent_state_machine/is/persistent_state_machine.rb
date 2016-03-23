@@ -268,7 +268,7 @@ module DataMapper
           property :from_id, Integer,   :required => true, :min => 1
           property :to_id, Integer,     :required => true, :min => 1
           property :user_id, Integer,   :required => true, :min => 1
-          property :comment, String
+          property :comment, String, :length => 512, :required => false
           property Extlib::Inflection.foreign_key(target_model_name).to_sym, Integer, :required => true, :min => 1
           property :created_at, DateTime
           property :snapshot_data, ::DataMapper::Property::Text
