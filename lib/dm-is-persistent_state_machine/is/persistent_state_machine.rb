@@ -153,7 +153,7 @@ module WorkflowConfig
     end
     
     def items_in(base_set, folder_name)
-      folder = QuoteWorkflow.folders.select{|f| f[:name] == folder_name.to_s }.first
+      folder = self.class.folders.select{|f| f[:name] == folder_name.to_s }.first
       if folder[:filter_method]
         result = self.send(folder[:filter_method].to_s, base_set)
       else
@@ -167,16 +167,16 @@ module WorkflowConfig
     
     def event_allowed?(event_name, from, opts = {})
       return false unless @quote.current_responsible_user_id==nil || @quote.current_responsible_user_id==@user.id || opts[:ignore_responsible_user_setting]
-      return true unless QuoteWorkflow.event_preconditions && QuoteWorkflow.event_preconditions[event_name.to_s] && QuoteWorkflow.event_preconditions[event_name.to_s][from.to_s]
-      QuoteWorkflow.event_preconditions[event_name.to_s][from.to_s].checks.each do |c|
+      return true unless self.class.event_preconditions && self.class.event_preconditions[event_name.to_s] && self.class.event_preconditions[event_name.to_s][from.to_s]
+      self.class.event_preconditions[event_name.to_s][from.to_s].checks.each do |c|
         return false unless self.send(c.to_s)
       end
       true
     end
     
     def get_validation_error(event_name, from)
-      return nil unless QuoteWorkflow.event_preconditions && QuoteWorkflow.event_preconditions[event_name.to_s] && QuoteWorkflow.event_preconditions[event_name.to_s][from.to_s]
-      QuoteWorkflow.event_preconditions[event_name.to_s][from.to_s].validations.each do |v|
+      return nil unless self.class.event_preconditions && self.class.event_preconditions[event_name.to_s] && self.class.event_preconditions[event_name.to_s][from.to_s]
+      self.class.event_preconditions[event_name.to_s][from.to_s].validations.each do |v|
         e = self.send(v.to_s)
         return e if e
       end
@@ -184,9 +184,9 @@ module WorkflowConfig
     end
     
     def get_editable_data(state)
-      return[] unless QuoteWorkflow.editable_data_defs && QuoteWorkflow.editable_data_defs[state.to_s]
+      return[] unless self.class.editable_data_defs && self.class.editable_data_defs[state.to_s]
       result = []
-      QuoteWorkflow.editable_data_defs[state.to_s].each do |ed|
+      self.class.editable_data_defs[state.to_s].each do |ed|
         passed = true
         if ed[:checks]
           ed[:checks].each do |c|
@@ -199,9 +199,9 @@ module WorkflowConfig
     end
     
     def get_visible_data(state)
-      return[] unless QuoteWorkflow.visible_data_defs && QuoteWorkflow.visible_data_defs[state.to_s]
+      return[] unless self.class.visible_data_defs && self.class.visible_data_defs[state.to_s]
       result = []
-      QuoteWorkflow.visible_data_defs[state.to_s].each do |ed|
+      self.class.visible_data_defs[state.to_s].each do |ed|
         passed = true
         if ed[:checks]
           ed[:checks].each do |c|
