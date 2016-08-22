@@ -6,7 +6,7 @@ class StateTransition
   property :state_id,       Integer, :required => true, :min => 1
   property :target_id,      Integer, :required => true, :min => 1
   property :state_event_id, Integer, :required => true, :min => 1
-  
+
   belongs_to :state
   belongs_to :target, 'State', :child_key => [:target_id]
   belongs_to :state_event
@@ -20,6 +20,7 @@ class State
   property :editable,       Boolean, :default => true
   property :sorter,         Integer
   property :type,           Discriminator
+  property :validity_period, Integer, :required => true, :default => 0
 
   translatable :accepts_nested_attributes => false do
     property :name, String, :required => true, :unique_index => :name
@@ -28,7 +29,7 @@ class State
 
   # outgoing transitions
   has n, :state_transitions, 'StateTransition', :child_key => [:state_id]
-  
+
   def events
     evts = []
     state_transitions.each do |transition|
@@ -37,13 +38,13 @@ class State
     end
     evts
   end
-  
+
   # obj is the caller object
   def trigger_event!(obj, event_code)
     event = StateEvent.first(:code => event_code)
     puts event.inspect
     state_transitions.each do |transition|
-      if transition.state_event == event    
+      if transition.state_event == event
         obj.state = transition.target
         obj.after_trigger_event(event)
         return true
@@ -55,7 +56,7 @@ end
 
 class StateEvent
   include DataMapper::Resource
-  
+
   property :id,   Serial
   property :code, String, :required => true, :unique => true, :unique_index => true
   property :next_user_required, Boolean
@@ -84,30 +85,30 @@ module WorkflowConfig
       @checks = []
       @validations = []
     end
-    
+
     def check(method_name)
       @checks << method_name
     end
-    
+
     def validate(method_name)
       @validations << method_name
     end
-    
+
     def checks
       @checks
     end
-    
+
     def validations
       @validations
     end
   end
-  
+
   module Setup
     attr_accessor :folders
     attr_accessor :event_preconditions
     attr_accessor :editable_data_defs
     attr_accessor :visible_data_defs
-  
+
     def folder(name, opts, &block)
       @folders = [] unless @folders
       if block_given?
@@ -116,42 +117,42 @@ module WorkflowConfig
       end
       @folders << opts.merge(:name => name.to_s)
     end
-    
+
     def preconditions_for(name, opts, &block)
       @event_preconditions = {} unless @event_preconditions
       @event_preconditions[name.to_s] = {} unless @event_preconditions[name.to_s]
-      
+
       e = EventPrecondition.new(name.to_s, opts)
-      
+
       if block_given?
         yield e
       end
       @event_preconditions[name.to_s][opts[:from].to_s] = e
     end
-    
+
     def editable_data(state, opts, &block)
       @editable_data_defs = {} unless @editable_data_defs
       @editable_data_defs[state.to_s] = [] unless @editable_data_defs[state.to_s]
       @editable_data_defs[state.to_s].push opts
     end
-    
+
      def visible_data(state, opts, &block)
       @visible_data_defs = {} unless @visible_data_defs
       @visible_data_defs[state.to_s] = [] unless @visible_data_defs[state.to_s]
       @visible_data_defs[state.to_s].push opts
     end
-    
+
     def state_folders
       return @folders.map{|f| {:name => f[:name], :label => f[:label] || f[:name] } }
     end
   end
-  
+
   module Query
-  
+
     def set(name, value)
       instance_variable_set(name, value)
     end
-    
+
     def items_in(base_set, folder_name)
       folder = self.class.folders.select{|f| f[:name] == folder_name.to_s }.first
       if folder[:filter_method]
@@ -164,7 +165,7 @@ module WorkflowConfig
       end
       result
     end
-    
+
     def event_allowed?(event_name, from, opts = {})
       return false unless @quote.current_responsible_user_id==nil || @quote.current_responsible_user_id==@user.id || opts[:ignore_responsible_user_setting]
       return true unless self.class.event_preconditions && self.class.event_preconditions[event_name.to_s] && self.class.event_preconditions[event_name.to_s][from.to_s]
@@ -173,7 +174,7 @@ module WorkflowConfig
       end
       true
     end
-    
+
     def get_validation_error(event_name, from)
       return nil unless self.class.event_preconditions && self.class.event_preconditions[event_name.to_s] && self.class.event_preconditions[event_name.to_s][from.to_s]
       self.class.event_preconditions[event_name.to_s][from.to_s].validations.each do |v|
@@ -182,7 +183,7 @@ module WorkflowConfig
       end
       nil
     end
-    
+
     def get_editable_data(state)
       return[] unless self.class.editable_data_defs && self.class.editable_data_defs[state.to_s]
       result = []
@@ -197,7 +198,7 @@ module WorkflowConfig
       end
       result.uniq
     end
-    
+
     def get_visible_data(state)
       return[] unless self.class.visible_data_defs && self.class.visible_data_defs[state.to_s]
       result = []
@@ -213,49 +214,49 @@ module WorkflowConfig
       result.uniq
     end
   end
-  
+
 end
 
 module DataMapper
   module Is
     module PersistentStateMachine
-      
+
       class DmIsPersistentStateMachineException < Exception; end
-      
+
       ##
       # fired when plugin gets included into Resource
       #
       def self.included(base)
-        
+
       end
- 
+
       ##
       # Methods that should be included in DataMapper::Model.
       # Normally this should just be your generator, so that the namespace
       # does not get cluttered. ClassMethods and InstanceMethods gets added
       # in the specific resources when you fire is :example
       ##
-    
+
       def is_persistent_state_machine
         DataMapper.logger.info "registering persistent state machine..."
-        
+
         # Add class-methods
         extend DataMapper::Is::PersistentStateMachine::ClassMethods
         extend Forwardable
         # Add instance-methods
         include DataMapper::Is::PersistentStateMachine::InstanceMethods
-        
+
         target_model_name = self.name.snake_case
-        
+
         # target object must have a status associated
         property :state_id, Integer, :required => true, :min => 1
         property :current_responsible_user_id, Integer
         belongs_to :state
         belongs_to :current_responsible_user, :model => 'User'
-        
+
         has n, Extlib::Inflection.pluralize(target_model_name+"StateChange").snake_case.to_sym, :constraint => :destroy!
-        
-        # generate a FooState class that is derived from State        
+
+        # generate a FooState class that is derived from State
         state_model = Object.full_const_set(self.to_s+"State", Class.new(State))
         # generate a FooStateEvent class that is derived from StateEvent
         event_model = Object.full_const_set(self.to_s+"StateEvent", Class.new(StateEvent))
@@ -280,11 +281,11 @@ module DataMapper
           belongs_to :to,   "State"
           belongs_to target_model_name.to_sym
         end
-        
+
         state_change_model = Object.full_const_set(self.to_s+"StateChange",state_change_model)
-        
+
         self_cached = self
-        
+
         after :save do
           if (@prev_state && (@prev_state != state || @next_user_id!=current_responsible_user_id))
             snapshot_data = nil
@@ -308,16 +309,16 @@ module DataMapper
         end
 
         # define delegators
-        def_delegators :@state, :events        
+        def_delegators :@state, :events
       end
-      
+
       ##
       # fired after trigger_event! is called on resource
       #
       module ClassMethods
-        
+
       end # ClassMethods
- 
+
       module InstanceMethods
         def trigger_event!(event_code, user, comment = nil, next_user_id = nil)
           # cache prev_state and the user that is triggering the event
@@ -330,7 +331,7 @@ module DataMapper
           # delegate to State#trigger!
           self.state.trigger_event!(self, event_code)
         end
-        
+
         # hookable
         def after_trigger_event(event)
 
