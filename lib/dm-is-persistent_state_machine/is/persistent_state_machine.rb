@@ -295,7 +295,6 @@ module DataMapper
             # for some reason attributes= does raise an error, unfortunately solution provided here https://github.com/datamapper/dm-core/issues/159 does not solve it
             @state_change.from = @prev_state
             @state_change.to = state
-            @state_change.created_at = DateTime.now,
             @state_change.user = @updating_user
             @state_change.comment = @comment
             @state_change.send(Extlib::Inflection.foreign_key(target_model_name)+'=', self.id)
