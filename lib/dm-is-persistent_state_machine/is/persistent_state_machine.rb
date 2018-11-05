@@ -302,6 +302,7 @@ module DataMapper
           property :from_id, Integer,   :required => true, :min => 1
           property :to_id, Integer,     :required => true, :min => 1
           property :user_id, Integer,   :required => true, :min => 1
+          property :state_event_id, Integer
           property :comment, String, :length => 512, :required => false
           property Extlib::Inflection.foreign_key(target_model_name).to_sym, Integer, :required => true, :min => 1
           property :created_at, DateTime
@@ -312,6 +313,7 @@ module DataMapper
           belongs_to :user
           belongs_to :from, "State"
           belongs_to :to,   "State"
+          belongs_to :state_event, "StateEvent"
           belongs_to target_model_name.to_sym
         end
 
@@ -320,7 +322,7 @@ module DataMapper
         self_cached = self
 
         after :save do
-          if (@prev_state && (@prev_state != state || @next_user_id!=current_responsible_user_id))
+          if @prev_state
             snapshot_data = nil
             if self.respond_to?('serialize')
               snapshot_data = self.serialize
@@ -330,6 +332,7 @@ module DataMapper
             @state_change.from = @prev_state
             @state_change.to = state
             @state_change.user = @updating_user
+            @state_change.state_event_id = @state_event_id
             @state_change.comment = @comment
             @state_change.send(Extlib::Inflection.foreign_key(target_model_name)+'=', self.id)
             @state_change.snapshot_data = snapshot_data
@@ -358,6 +361,7 @@ module DataMapper
           @updating_user = user
           @comment = comment
           @next_user_id = next_user_id
+          @state_event_id = StateEvent.first(:code => event_code).id
           self.current_responsible_user_id = next_user_id
 
           # delegate to State#trigger!
