@@ -306,7 +306,7 @@ module DataMapper
           property :comment, String, :length => 512, :required => false
           property Extlib::Inflection.foreign_key(target_model_name).to_sym, Integer, :required => true, :min => 1
           property :created_at, DateTime
-          property :snapshot_data, ::DataMapper::Property::Text
+          property :snapshot_data, ::DataMapper::Property::Text, :length => 1000000000
           property :next_user_id, Integer
 
           # associations
