@@ -308,7 +308,7 @@ module DataMapper
           property :created_at, DateTime
           property :snapshot_data, ::DataMapper::Property::Text, :length => 1000000000
           property :next_user_id, Integer
-          property :reverted, Boolean, :default => false
+          property :reverted, ::DataMapper::Property::Boolean, :default => false
 
           # associations
           belongs_to :user
